@@ -1,0 +1,71 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          python3-pip \
+          python3-dev \
+          openjdk-17-jdk \
+          git \
+          zip \
+          unzip \
+          zlib1g-dev \
+          libffi-dev \
+          libssl-dev \
+          autoconf \
+          libtool \
+          pkg-config
+        
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install cython virtualenv
+        pip install buildozer
+        
+    - name: Build APK with Buildozer
+      run: |
+        # تنظيف
+        rm -rf .buildozer bin
+        
+        # بناء مع تفاصيل كاملة
+        buildozer android debug --verbose 2>&1 | tee build.log
+        
+    - name: Upload build logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: build.log
+        
+    - name: Upload APK
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Telegram-C2-APK
+        path: bin/*.apk
+        
+    - name: Show errors if build failed
+      if: failure()
+      run: |
+        echo "===== BUILD FAILED - LAST 50 LINES ====="
+        tail -50 build.log
+        echo "===== SEARCHING FOR ERRORS ====="
+        grep -i -E "error|exception|failed|traceback" build.log | head -20
